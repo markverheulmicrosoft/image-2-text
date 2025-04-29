@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Image Extraction Demo</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 540px;
+            margin: 40px auto 0 auto;
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+            padding: 32px 32px 24px 32px;
+        }
+
+        h2 {
+            text-align: center;
+            font-weight: 700;
+            color: #1976d2;
+            letter-spacing: 1px;
+            margin-bottom: 28px;
+            font-size: 2.1em;
+        }
+
+        #upload-form {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            align-items: center;
+        }
+
+        #image-file {
+            display: none;
+        }
+
+        #prompt-box {
+            width: 100%;
+            max-width: 400px;
+            font-size: 1.05em;
+            border-radius: 6px;
+            border: 1px solid #d0d7de;
+            padding: 10px;
+            background: #f8fafc;
+            resize: vertical;
+        }
+
+        #upload-form button {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 8px 18px;
+            font-size: 1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+            min-width: 120px;
+        }
+
+        #upload-btn {
+            background: #1976d2;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            padding: 14px 32px;
+            font-size: 1.25em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            min-width: 160px;
+        }
+
+        #upload-form button:hover {
+            background: #1251a3;
+        }
+
+        #upload-btn:hover {
+            background: #1251a3;
+        }
+
+        #image-preview {
+            display: block;
+            margin: 24px auto 12px auto;
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+            border: 1px solid #e0e0e0;
+        }
+
+        #result {
+            margin-top: 18px;
+            background: #f6f8fa;
+            padding: 18px 16px;
+            border-radius: 8px;
+            min-height: 2em;
+            font-size: 1.08em;
+            color: #222;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            white-space: pre-line;
+        }
+
+        label {
+            font-weight: 500;
+            color: #333;
+            align-self: flex-start;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2
+            style="text-align:center; font-weight:700; color:#1976d2; letter-spacing:1px; margin-bottom:28px; font-size:2.1em;">
+            Smart Image Extraction Demo</h2>
+        <form id="upload-form" style="display:flex; flex-direction:column; gap:14px; align-items:center;">
+            <div style="display:flex; gap:10px; width:100%; justify-content:center; align-items:center;">
+                <button type="submit"
+                    style="background:#43a047; color:#fff; border:none; border-radius:6px; padding:14px 32px; font-size:1.25em; font-weight:600; cursor:pointer; transition:background 0.2s; min-width:160px;">Extract
+                    Info</button>
+                <button type="button" id="upload-btn"
+                    style="background:#1976d2; color:#fff; border:none; border-radius:6px; padding:14px 32px; font-size:1.25em; font-weight:600; cursor:pointer; transition:background 0.2s; min-width:160px;">Upload
+                    different image</button>
+            </div>
+            <label for="prompt-box" style="align-self:flex-start; font-weight:500; color:#333;">Prompt for LLM
+                analysis:</label>
+            <textarea id="prompt-box" rows="3"
+                style="width:100%;max-width:400px; font-size:1.05em; border-radius:6px; border:1px solid #d0d7de; padding:10px; background:#f8fafc; resize:vertical;">Describe this image in detail, focusing on any charts, graphs, or text visible.</textarea>
+        </form>
+        <input type="file" id="image-file" accept="image/*" style="display:none;" />
+        <img id="image-preview" src="/static/images/msft_stock.png" alt="Image preview" />
+        <div id="result"></div>
+    </div>
+    <script>
+        const form = document.getElementById('upload-form');
+        const fileInput = document.getElementById('image-file');
+        const uploadBtn = document.getElementById('upload-btn');
+        const preview = document.getElementById('image-preview');
+        const resultDiv = document.getElementById('result');
+        let preloadedFile = null;
+
+        // Preload msft_stock.png as a File object
+        window.addEventListener('DOMContentLoaded', async () => {
+            const response = await fetch('/static/images/msft_stock.png');
+            const blob = await response.blob();
+            preloadedFile = new File([blob], 'msft_stock.png', { type: blob.type });
+        });
+
+        uploadBtn.onclick = () => fileInput.click();
+        fileInput.onchange = function () {
+            const file = fileInput.files[0];
+            if (file) {
+                const url = URL.createObjectURL(file);
+                preview.src = url;
+                preview.style.display = 'block';
+            } else {
+                preview.src = '/static/images/msft_stock.png';
+                preview.style.display = 'block';
+            }
+        };
+
+        function renderMarkdownToHtml(md) {
+            // Improved markdown to HTML: headings, bold, italics, lists, code, links, line breaks
+            let html = md
+                // Headings (##, ###, etc.)
+                .replace(/^###### (.*)$/gm, '<h6>$1</h6>')
+                .replace(/^##### (.*)$/gm, '<h5>$1</h5>')
+                .replace(/^#### (.*)$/gm, '<h4>$1</h4>')
+                .replace(/^### (.*)$/gm, '<h3>$1</h3>')
+                .replace(/^## (.*)$/gm, '<h2>$1</h2>')
+                .replace(/^# (.*)$/gm, '<h1>$1</h1>')
+                // Bold and italics
+                .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+                .replace(/\*([^*]+)\*/g, '<i>$1</i>')
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                // Links
+                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+                // Unordered lists
+                .replace(/(^|\n)[\s]*[-*] (.*?)(?=\n|$)/g, '$1<li>$2</li>')
+                // Ordered lists
+                .replace(/(^|\n)[\s]*\d+\. (.*?)(?=\n|$)/g, '$1<ol><li>$2</li></ol>')
+                // Blockquotes
+                .replace(/^> (.*)$/gm, '<blockquote>$1</blockquote>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+            // Wrap <li> in <ul> if any (and not already in <ul>)
+            if (/<li>/.test(html) && !/<ul>/.test(html)) html = '<ul>' + html + '</ul>';
+            // Merge consecutive <ol> tags
+            html = html.replace(/<\/ol><ol>/g, '');
+            // Remove stray markdown symbols
+            html = html.replace(/^[#>`]+/gm, '').replace(/\r/g, '');
+            return html;
+        }
+
+        form.onsubmit = async function (e) {
+            e.preventDefault();
+            let file = fileInput.files[0] || preloadedFile;
+            if (!file) return;
+            const prompt = document.getElementById('prompt-box').value;
+            resultDiv.textContent = 'Extracting...';
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('prompt', prompt);
+            try {
+                const response = await fetch('/image-to-text?prompt=' + encodeURIComponent(prompt), {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) throw new Error('Extraction failed');
+                const data = await response.json();
+                resultDiv.textContent = '';
+                let text = data.description || data.result || JSON.stringify(data, null, 2);
+                // If markdown, render as HTML
+                if (/[*_`\[\]#>-]/.test(text)) {
+                    resultDiv.innerHTML = renderMarkdownToHtml(text);
+                } else {
+                    resultDiv.innerText = text;
+                }
+            } catch (err) {
+                resultDiv.textContent = 'Error: ' + err.message;
+            }
+        };
+    </script>
+</body>
+
+</html>
